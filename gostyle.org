@@ -1,0 +1,287 @@
+#+TITLE: go style
+
+#+BEGIN_QUOTE
+Simple, Poetic, Pithy. -- Rob Pike
+#+END_QUOTE
+
+* toc :toc:quote:
+- [[#go-编码应该遵守的原则][go 编码应该遵守的原则]]
+- [[#包目录][包目录]]
+  - [[#命名][命名]]
+  - [[#组织结构][组织结构]]
+- [[#文件][文件]]
+  - [[#命名-1][命名]]
+  - [[#限制][限制]]
+- [[#标识符][标识符]]
+  - [[#命名-2][命名]]
+- [[#包导入][包导入]]
+- [[#包初始化][包初始化]]
+- [[#接口][接口]]
+  - [[#命名-3][命名]]
+  - [[#约定][约定]]
+  - [[#标准接口][标准接口]]
+- [[#函数方法][函数/方法]]
+  - [[#命名-4][命名]]
+  - [[#函数体组织结构][函数体组织结构]]
+  - [[#内存分配][内存分配]]
+  - [[#协程][协程]]
+  - [[#控制结构][控制结构]]
+  - [[#错误处理][错误处理]]
+  - [[#defer][defer]]
+- [[#版本标记][版本标记]]
+- [[#提交信息][提交信息]]
+- [[#常用接口定义][常用接口定义]]
+    - [[#buildin][buildin]]
+      - [[#error][error]]
+    - [[#package-sort][package sort]]
+      - [[#interface][Interface]]
+    - [[#package-containerheap][package container/heap]]
+      - [[#interface-1][Interface]]
+    - [[#package-fmt][package fmt]]
+      - [[#stringer][Stringer]]
+      - [[#gostringer][GoStringer]]
+- [[#常用词缩写表][常用词缩写表]]
+- [[#参考][参考]]
+
+* go 编码应该遵守的原则
+
++ 命名应尽可能简短明意
++ 语句尽可能简单明意
++ 函数/方法不到万不得已"不实现"
++ 尽可能不给使用者暴露实现
++ 结构清晰的包
++ 功能单一的文件文件
++ 必要的 =${pkg}_test.go=
++ 总是使用 =[[https://golang.org/cmd/gofmt/][gofmt]]= 格式化代码
+
+
+* 包目录
+  :PROPERTIES:
+  :深度: 导入的包目录的深度, 不包含 =$GOROOT/src=, =$GOPATH/src=
+  :END:
+
+** 命名
+   + 包目录的名字和包名一致
+   + 子包不加当前包名, 以此类推
+   + 包名通常是一个全小写的单词
+
+** 组织结构
+   + 深度越大, 抽象越低
+   + 每个包应该有 =${packagename}_test.go=
+   + 包的深度由问题域决定(如 =encoding/json=)
+
+* 文件
+** 命名
+   + 暴露包接口的文件和包名一致
+   + 如果有新定义的类型, 并有基于此类型的方法/函数, 则将它们写到一个文件中, 文件名为类型名
+   + 如果有测试代码, 则每个文件对应一个测试文件, 测试文件名为 =${filename}_test.go=
+
+** 限制
+   + 行长度尽量保持在 80 字符内
+   + TODO: 行数限制
+
+* 标识符
+** 命名
+   + 按照惯例, 标识符都应该使用驼峰命名法, 在 golang 中称为 =MixedCaps=
+   + 可导出的标识符大写字母开头, 不可导出的小写开头
+   + 不使用的变量(函数返回值, 只需要初始化的包等), 使用空标识符 =_= 占位
+
+* 包导入
+  + 标准库包: 依赖 Go 版本, 随 Go 标准套件分发
+  + 第三方包: 除了本项目外的所有包为第三方包, 也既是此项目的依赖包
+  + 子包: 当前项目的子包
+  
+  + 包导入顺序为标准包, 第三方包, 子包
+  + 尽量不使用 =.= 导入, 入需要应注释说明
+  + 使用 =_= 导入的包应该有注释说明
+
+* 包初始化
+  + 同类常量使用 const 块包含起来
+  + 同类变量使用 var 块包含起来
+  + 尽量使用 =[[https://golang.org/ref/spec#Iota][iota]]= 生成枚举值常量
+  + 不能以 var 声明初始化的变量使用 =init= 函数初始化
+  + 包初始要求检查使用 =init= 函数
+
+* 接口
+#+BEGIN_QUOTE
+The bigger the interface, the weaker the abstraction.
+#+END_QUOTE
+
+** 命名
+   + 按照惯例, 单方法接口名使用方法名加 =-er= 后缀
+
+** 约定
+   + 接口和实现是分离的(duck type)
+   + 接口应该在使用它的包中定义, 而非实现它的包; 即这个包的使用是基于接口的
+   + 如果一类功能暂时不会有多种实现, 则不急于定义新的接口
+   + 如果某接口的实现仅包含接口的可导出方法, 则这个实现的构造函数可以返回接口类型
+
+** 标准接口
+   + 实现的方法如果和标准接口具有相同意义, 则尽量使用标准接口方法
+   + 如果实现的方法与标准接口方法名相同, 但意义不同, 尽量使用其他方法名, 避免混淆
+
+* 函数/方法
+** 命名
+   + 判断是否是使用 =is= 前缀
+   + 判断是否包含使用 =has= 前缀
+   + 构造函数通常命名为 =New=
+   + 如果结构体的字段是未导出的, 则对应的 Getter 方法名应该是其首字符大写形式
+   + 方法的接收器变量命名尽可能短(如 =(s *Server)=)
+   + 参数, 返回值名明意第一, 简短第二
+
+** 函数体组织结构
+   + 函数超过 40 行, 可以考虑分解它
+   + 控制结构嵌套深度超过三层, 应该考虑分解它
+   + 功能独立的块之间应该用新行分开
+   + 非服务/驱动类函数/方法, 尽量使用 =error= 值返回其错误, 而不是 =logging=
+   + 必要的入参检查
+   + 变量的声明总是靠近其最近的作用域
+ 
+** 内存分配
+   + 内建类型(array,slice,map,chan)用 =make=, 自定义类型(struct)用 =new=
+
+** 协程
+   #+BEGIN_QUOTE
+   Don't communicate by sharing memory, share memory by communicating.
+   #+END_QUOTE
+
+   + 协程间尽量使用 =channal= 通信
+   + 协程间尽量使用 =channal= 同步
+   + 协程可以自己停止, 或能被停止
+
+** 控制结构
+   + 一个函数内可以使用 1-2 个 =goto= 语句, 合适的使用 =goto=, 可以使代码更简练
+   + 如果 =if= 分支太多, 可以考虑使用 =switch=
+   + 控制结构应该逻辑完备(如 switch, 除了应有的 case, default 也可能是必要的)
+
+** 错误处理
+   + 错误描述尽量使用英文, 全小写, 末尾不加 =.=, 这样便于 =logging=
+   + 调用的函数返回的错误原样返回即可
+   + 包内的错误可以考虑定义为新错误类型
+** defer
+   + 每个需要关闭的链接/文件/锁等释放资源类的操作, 尽量使用 =defer= 语句
+
+
+* Comment style
+  [[https://blog.golang.org/godoc-documenting-go-code][documenting Go code]]
+  
+  =TODO(username): 具体描述=
+
+* 版本标记
+可以使用[[https://semver.org/lang/zh-CN/][语义化版本规范]]
+
+* 提交信息
+使用[[https://github.com/angular/angular/blob/master/CONTRIBUTING.md][angular commit style]]
+
+#+BEGIN_SRC plain
+<type>(<scope>): <subject>
+<BLANK LINE>
+<body>
+<BLANK LINE>
+<footer>
+#+END_SRC
+
+使用[[https://github.com/git-chglog/git-chglog][git-chglog]]生成 changlog
+
+* 常用接口定义
+*** buildin
+
+**** [[https://golang.org/pkg/builtin/#error][error]]
+    表示错误
+    #+BEGIN_SRC golang
+    type error interface {
+	    Error() string
+    }
+    #+END_SRC
+
+*** package sort 
+**** [[https://golang.org/pkg/sort/#Interface][Interface]]
+     列表(slice)或数组(array)排序所需实现的接口
+     #+BEGIN_SRC golang
+     type Interface interface {
+       // Len is the number of elements in the collection.
+       Len() int
+       // Less reports whether the element with
+       // index i should sort before the element with index j.
+       Less(i, j int) bool
+       // Swap swaps the elements with indexes i and j.
+       Swap(i, j int)
+     }
+     #+END_SRC
+
+*** package container/heap
+**** [[https://golang.org/pkg/container/heap/#Interface][Interface]]
+     #+BEGIN_SRC golang 
+     type Interface interface {
+       sort.Interface
+       Push(x interface{}) // add x as element Len()
+       Pop() interface{}   // remove and return element Len() - 1.
+     }
+     #+END_SRC
+
+*** package fmt
+**** [[https://golang.org/pkg/fmt/#Stringer][Stringer]]
+     + "%s" 格式化字符串对应的方法
+     + 默认按照字符串格式化的函数使用
+     #+BEGIN_SRC golang
+     type Stringer interface {
+       String() string
+     }
+     #+END_SRC
+
+**** [[https://golang.org/pkg/fmt/#GoStringer][GoStringer]]
+     #+BEGIN_SRC golang
+     type GoStringer interface {
+     	 GoString() string
+     }
+     #+END_SRC
+
+
+* 常用词缩写表
+
+标识符书写遵循作用域越小标识符越短, 使用频率越高标识符越短的原则
+
+这里以代码行数的角度定义标识符作用域为三个级别:
++ 小: 1-9 行
++ 中: 10-20 行
++ 大: 20 行以上 
+
+标识符使用频率的三个级别:
++ 低:
++ 中: 
++ 高: 
+
+| 词          | 缩写 |
+|-------------+------|
+| argument    | arg  |
+| buffer      | buf  |
+| destination | dst  |
+| source      | src  |
+| business    | biz  |
+| package     | pkg  |
+| position    | pos  |
+| number      | num  |
+| separator   | sep  |
+| hexadecimal | hex  |
+| absolute    | abs  |
+| average     | avg  |
+| column      | col  |
+| condition   | cond |
+| convert     | conv |
+| increment   | inc  |
+| server      | srv  |
+| application | app  |
+| alternate   | alt  |
+| button      | btn  |
+| counter     | cnt  |
+| memory      | mem  |
+| result      | res  |
+| temporary   | tmp  |
+
+* 参考
++ [[https://go-proverbs.github.io/][go-proverbs]]
++ [[https://golang.org/doc/effective_go.html][effective_go]]
++ [[https://github.com/golang/go/wiki/CodeReviewComments][CodeReviewComments]]
++ [[https://golang.org/ref/spec][golang specification]]
++ [[http://tmrts.com/go-patterns][go-patterns]]
++ [[http://users.ece.utexas.edu/~adnan/pike.html][Rob Pike's 5 Rules of Programming]]
